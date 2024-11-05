@@ -13,6 +13,13 @@ MCUFRIEND_kbv tft;
 #define textH 16
 #define textW 12
 
+const int16_t valStartX = 13*textW;
+int16_t throttleWidth = 1;
+int16_t rpmWidth = 1;
+int16_t speedWidth = 1;
+int16_t ectWidth = 1;
+int16_t maxWidth = 1;
+
 #include "Arduino.h"
 #include "OBD9141.h"
 #include "AltSoftSerial.h"
@@ -24,9 +31,9 @@ OBD9141 obd;
 // https://www.pjrc.com/teensy/td_libs_AltSoftSerial.html
 // arduino uno txpin: 9, rxpin: 8
 AltSoftSerial altSerial;
-bool initSuccess;
 
 uint16_t loopCount = 0;
+uint8_t state = 0;
 
 void setup(void) {
   uint16_t ID = tft.readID();
@@ -50,88 +57,95 @@ void setup(void) {
   tft.setCursor(0, 6*textH);
   tft.print("Loop Count");
 
+  tft.fillRect(valStartX, 0*textH, maxWidth*textW, 4*textH, BLACK);
   uint8_t val = 0;
-  tft.setCursor(13*textW, 0*textH);
+  tft.setCursor(valStartX, 0*textH);
   tft.print(val);
-  tft.setCursor(13*textW, 1*textH);
+  tft.setCursor(valStartX, 1*textH);
   tft.print(val);
-  tft.setCursor(13*textW, 2*textH);
+  tft.setCursor(valStartX, 2*textH);
   tft.print(val);
-  tft.setCursor(13*textW, 3*textH);
+  tft.setCursor(valStartX, 3*textH);
   tft.print(val);
+
+  tft.fillRect(0, 8*textH, 20*textW, 4*textH, BLACK);
+  tft.print("initializing obd...");
 
   // obd.begin(Serial, RX_PIN, TX_PIN);
   obd.begin(altSerial, RX_PIN, TX_PIN);
+}
 
-  initSuccess = false;
+void measureValWidth(int16_t& maxWidth, int16_t& width, MCUFRIEND_kbv& tft) {
+  width = tft.getCursorX() - valStartX;
+  if (width > maxWidth) maxWidth = width;
 }
 
 void loop(void) {
 
-  if (loopCount > 3) {
-    tft.fillRect(13*textW, 0*textH, 5*textW, 4*textH, BLACK);
+  if (loopCount > 9999) {
+    delay(UINT16_MAX);
     return;
   } else {
-    tft.fillRect(13*textW, 6*textH, 3*textW, 1*textH, BLACK);
+    tft.fillRect(valStartX, 6*textH, 3*textW, textH, BLACK);
 
-    tft.setCursor(13*textW, 6*textH);
+    tft.setCursor(valStartX, 6*textH);
     tft.print(loopCount);
   }
 
-  if (!initSuccess) {
-    initSuccess = obd.initKWP();
-    delay(50);
-  }
-  
-  if (!initSuccess) {
-    tft.fillRect(13*textW, 0*textH, 5*textW, 4*textH, BLACK);
-    uint8_t val = 0;
-    tft.setCursor(13*textW, 0*textH);
-    tft.print(val);
-    tft.setCursor(13*textW, 1*textH);
-    tft.print(val);
-    tft.setCursor(13*textW, 2*textH);
-    tft.print(val);
-    tft.setCursor(13*textW, 3*textH);
-    tft.print(val);
+  if (state == 0) {
+    bool res = obd.initKWP();
+    
+    if (res) {
+      state = 1;
 
-    delay(3000);
-  } else {
+      tft.fillRect(0, 8*textH, 20*textW, 4*textH, BLACK);
+      tft.print("obd is running...");
+    } else {
+      delay(1000);
+    }
+  } else if (state == 1) {
+    // tft.fillRect(valStartX, 0*textH, maxWidth*textW, 4*textH, BLACK);
     bool res;
 
+    delay(50);
     res = obd.getCurrentPID(0x11, 1);
     if (res) {
       // throttle
-      tft.setCursor(13*textW, 0*textH);
+      tft.fillRect(valStartX, 0*textH, throttleWidth*textW, 4*textH, BLACK);
+      tft.setCursor(valStartX, 0*textH);
       tft.print(obd.readUint8());
+      measureValWidth(maxWidth, throttleWidth, tft);
     }
-    delay(50);
 
+    delay(50);
     res = obd.getCurrentPID(0x0C, 2);
     if (res) {
       // rpm
-      tft.setCursor(13*textW, 1*textH);
+      tft.fillRect(valStartX, 0*textH, rpmWidth*textW, 4*textH, BLACK);
+      tft.setCursor(valStartX, 1*textH);
       tft.print(obd.readUint8());
+      measureValWidth(maxWidth, rpmWidth, tft);
     }
-    delay(50);
 
+    delay(50);
     res = obd.getCurrentPID(0x0D, 1);
     if (res) {
       // speed
-      tft.setCursor(13*textW, 2*textH);
+      tft.fillRect(valStartX, 0*textH, speedWidth*textW, 4*textH, BLACK);
+      tft.setCursor(valStartX, 2*textH);
       tft.print(obd.readUint8());
+      measureValWidth(maxWidth, speedWidth, tft);
     }
-    delay(50);
 
+    delay(50);
     res = obd.getCurrentPID(0x05, 1);
     if (res) {
       // engine temp
-      tft.setCursor(13*textW, 3*textH);
+      tft.fillRect(valStartX, 0*textH, ectWidth*textW, 4*textH, BLACK);
+      tft.setCursor(valStartX, 3*textH);
       tft.print(obd.readUint8());
+      measureValWidth(maxWidth, ectWidth, tft);
     }
-
-    // delay(200);
-    delay(50);
   }
 
   loopCount++;
