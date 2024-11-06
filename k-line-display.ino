@@ -20,9 +20,16 @@ int16_t speedWidth = 1;
 int16_t ectWidth = 1;
 int16_t maxWidth = 1;
 
+// #define MY_USE_ALTSOFT 1
+
 #include "Arduino.h"
 #include "OBD9141.h"
+#ifdef MY_USE_ALTSOFT
 #include "AltSoftSerial.h"
+#define MY_SERIAL_DATA_TYPE AltSoftSerial
+#else
+#define MY_SERIAL_DATA_TYPE HardwareSerial
+#endif
 
 #define RX_PIN 0
 #define TX_PIN 1
@@ -30,7 +37,13 @@ int16_t maxWidth = 1;
 OBD9141 obd;
 // https://www.pjrc.com/teensy/td_libs_AltSoftSerial.html
 // arduino uno txpin: 9, rxpin: 8
+#ifdef MY_USE_ALTSOFT
 AltSoftSerial altSerial;
+MY_SERIAL_DATA_TYPE& mySerial = altSerial;
+#else
+MY_SERIAL_DATA_TYPE& mySerial = Serial;
+#endif
+
 
 uint16_t loopCount = 0;
 uint8_t state = 0;
@@ -69,10 +82,10 @@ void setup(void) {
   tft.print(val);
 
   tft.fillRect(0, 8*textH, 20*textW, 4*textH, BLACK);
+  tft.setCursor(0, 8*textH);
   tft.print("initializing obd...");
 
-  // obd.begin(Serial, RX_PIN, TX_PIN);
-  obd.begin(altSerial, RX_PIN, TX_PIN);
+  obd.begin(mySerial, RX_PIN, TX_PIN);
 }
 
 void measureValWidth(int16_t& maxWidth, int16_t& width, MCUFRIEND_kbv& tft) {
